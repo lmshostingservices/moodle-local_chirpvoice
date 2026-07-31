@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/chirpvoice/db" VERSION="20260605" COMMENT="XMLDB file for local_chirpvoice">
+  <TABLES>
+    <TABLE NAME="local_chirpvoice_course_settings" COMMENT="Per-course language restrictions for AI SCORM Voiceover">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" COMMENT="Moodle course id"/>
+        <FIELD NAME="allowedlanguages" TYPE="text" NOTNULL="false" COMMENT="Comma-separated language codes the teacher has enabled for this course. NULL means inherit from admin settings."/>
+        <FIELD NAME="voice" TYPE="char" LENGTH="50" NOTNULL="false" COMMENT="Voice name chosen by teacher for this course (e.g. Aoede). NULL means inherit from admin default."/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="unique" FIELDS="courseid"/>
+      </KEYS>
+    </TABLE>
+  </TABLES>
+</XMLDB>

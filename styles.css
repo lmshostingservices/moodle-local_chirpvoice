@@ -1,0 +1,130 @@
+/* AI SCORM Voiceover — Moodle host-page toolbar styles
+ * These styles apply to the floating toolbar injected into the SCORM player page.
+ * Styles for content INSIDE the SCORM iframe are injected dynamically by voiceover.js.
+ */
+
+/* ── Floating toolbar ─────────────────────────────────────────────────────── */
+#chirp-toolbar {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #1e293b;
+    color: #f1f5f9;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    font-size: 12px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.40);
+    user-select: none;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+#chirp-toolbar:hover {
+    opacity: 1 !important;
+}
+
+/* Logo / label */
+.chirp-logo {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: #7dd3fc;
+    letter-spacing: -0.01em;
+    margin-right: 2px;
+}
+
+
+/* Control buttons */
+.chirp-btn {
+    background: #334155;
+    color: #f1f5f9;
+    border: 1px solid #475569;
+    border-radius: 5px;
+    padding: 4px 9px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+    line-height: 1.4;
+}
+
+.chirp-btn:hover:not(:disabled) {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.chirp-btn:active:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.chirp-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+.chirp-play  { color: #86efac; }
+.chirp-pause { color: #fde68a; }
+.chirp-stop  { color: #fca5a5; }
+
+/* Status text — small unobtrusive label after the stop button */
+/* FIX-CV-STATUS-RESTORE (v1.1.32): #chirp-status was removed in v1.1.13 but
+   all setStatus() calls were kept (dead code). Errors and "no content" messages
+   were silently swallowed — users saw nothing when Play was clicked. Restored
+   as a compact read-only span at the end of the toolbar. */
+.chirp-status {
+    font-size: 11px;
+    color: #94a3b8;
+    white-space: nowrap;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 2px;
+    font-style: italic;
+}
+
+/* Speed control — − label + buttons */
+.chirp-speed-btn {
+    padding: 4px 7px;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.chirp-speed-lbl {
+    color: #7dd3fc;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    min-width: 32px;
+    text-align: center;
+}
+
+/* ── Teacher gear icon (v1.0.8) — links to course_settings.php ────────────── */
+/* Only visible to users with moodle/course:manageactivities capability.       */
+.chirp-gear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    color: #94a3b8;
+    font-size: 14px;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.chirp-gear:hover {
+    color: #7dd3fc;
+    background: rgba(125, 211, 252, 0.12);
+}
