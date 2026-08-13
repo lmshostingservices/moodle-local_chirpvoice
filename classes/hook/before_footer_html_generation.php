@@ -34,7 +34,6 @@ defined('MOODLE_INTERNAL') || die();
  * Hook callbacks for local_chirpvoice before_footer_html_generation.
  */
 class before_footer_html_generation {
-
     /**
      * Injects the AI SCORM Voiceover toolbar on SCORM player/view pages.
      *
