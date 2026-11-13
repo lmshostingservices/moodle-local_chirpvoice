@@ -48,7 +48,7 @@ try {
         exit;
     }
 
-    // sesskey arrives in the JSON body (Content-Type: application/json bypasses
+    // Sesskey arrives in the JSON body (Content-Type: application/json bypasses
     // POST body population, so require_sesskey() cannot find it). Validate manually.
     $sesskey = isset($input['sesskey']) ? (string)$input['sesskey'] : '';
     if (!confirm_sesskey($sesskey)) {
@@ -57,10 +57,10 @@ try {
         exit;
     }
 
-    $text     = isset($input['text'])     ? trim((string) $input['text'])     : '';
-    $voice    = isset($input['voice'])    ? trim((string) $input['voice'])    : 'Aoede';
+    $text     = isset($input['text']) ? trim((string) $input['text']) : '';
+    $voice    = isset($input['voice']) ? trim((string) $input['voice']) : 'Aoede';
     $language = isset($input['language']) ? trim((string) $input['language']) : 'en-AU';
-    $courseid = isset($input['courseid']) ? (int)$input['courseid']           : 0;
+    $courseid = isset($input['courseid']) ? (int)$input['courseid'] : 0;
 
     // FEAT-CV-SPEAKINGRATE (v1.1.18): Pass speakingRate to Google TTS natively so
     // the audio is generated at the correct pace without pitch distortion.
@@ -96,13 +96,13 @@ try {
 
     // All supported language codes (master allowed set).
     $alllanguages = [
-        'en-AU','en-US','en-GB','fr-FR','de-DE','es-ES','es-US','ja-JP',
-        'ko-KR','pt-BR','zh-CN','zh-TW','ar-XA','hi-IN','it-IT','nl-NL',
-        'pl-PL','ru-RU','sv-SE','tr-TR','uk-UA','vi-VN','th-TH','id-ID',
-        'ms-MY','fil-PH','cs-CZ','da-DK','fi-FI','nb-NO','hu-HU',
+        'en-AU', 'en-US', 'en-GB', 'fr-FR', 'de-DE', 'es-ES', 'es-US', 'ja-JP',
+        'ko-KR', 'pt-BR', 'zh-CN', 'zh-TW', 'ar-XA', 'hi-IN', 'it-IT', 'nl-NL',
+        'pl-PL', 'ru-RU', 'sv-SE', 'tr-TR', 'uk-UA', 'vi-VN', 'th-TH', 'id-ID',
+        'ms-MY', 'fil-PH', 'cs-CZ', 'da-DK', 'fi-FI', 'nb-NO', 'hu-HU',
     ];
 
-    // ── Admin-allowed languages ───────────────────────────────────────────────
+    // Admin-allowed languages.
     $allowedlangsraw = get_config('local_chirpvoice', 'allowedlanguages');
     if (!empty($allowedlangsraw)) {
         $adminlangs = array_filter(array_map('trim', explode(',', $allowedlangsraw)));
@@ -114,7 +114,7 @@ try {
         $adminlangs = ['en-AU'];
     }
 
-    // ── Course-level language restriction (teacher setting) ───────────────────
+    // Course-level language restriction (teacher setting).
     // FEAT-CV-TEACHER-LANG (v1.0.8): If the course has teacher-configured language
     // restrictions, intersect with admin-allowed and use as the effective list.
     $effectivelangs = $adminlangs;
@@ -129,7 +129,8 @@ try {
                 }
             }
         } catch (\Throwable $e) {
-            // Table not yet created — fall back to admin-allowed silently.
+            // Table not yet created: fall back to the admin-allowed languages.
+            debugging($e->getMessage(), DEBUG_DEVELOPER);
         }
     }
 
@@ -166,7 +167,8 @@ try {
     if (empty($siteid) || empty($apikey)) {
         echo json_encode([
             'ok'    => false,
-            'error' => 'AI Voiceover is not configured. Please set up your Site ID and API Key in Site Admin -> Plugins -> AI Voiceover settings (or via AI Config).',
+            'error' => 'AI Voiceover is not configured. Please set up your Site ID and API Key in Site Admin -> Plugins -> '
+                . 'AI Voiceover settings (or via AI Config).',
         ]);
         exit;
     }
@@ -180,7 +182,7 @@ try {
         'text'        => substr($text, 0, 4500),
         'voice'       => $voice,
         'language'    => $language,
-        'speakingRate' => $speakingrate,   // FEAT-CV-SPEAKINGRATE (v1.1.18)
+        'speakingRate' => $speakingrate, // FEAT-CV-SPEAKINGRATE (v1.1.18).
     ]);
 
     if ($postdata === false) {
@@ -228,7 +230,6 @@ try {
 
     // Pass through whatever the server returned (ok, audioContent, error, etc.).
     echo json_encode($data);
-
 } catch (\Throwable $e) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => $e->getMessage()]);

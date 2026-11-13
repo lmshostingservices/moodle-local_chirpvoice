@@ -46,7 +46,7 @@ $PAGE->set_course($course);
 $PAGE->set_title(get_string('coursesettingstitle', 'local_chirpvoice'));
 $PAGE->set_heading($course->fullname);
 
-// ── Voice options ─────────────────────────────────────────────────────────────
+// Voice options.
 $allvoiceoptions = [
     'Aoede'  => 'Aoede — warm, natural narrator',
     'Charon' => 'Charon — clear, authoritative',
@@ -77,7 +77,7 @@ if (empty($adminallowedvoices)) {
 }
 $displayvoices = array_intersect_key($allvoiceoptions, array_flip($adminallowedvoices));
 
-// ── All language options (master list) ────────────────────────────────────────
+// All language options (master list).
 $alllanguageoptions = [
     'en-AU' => 'English (Australia)',
     'en-US' => 'English (United States)',
@@ -127,7 +127,7 @@ if (empty($adminallowed)) {
 // Build display map (only admin-allowed languages shown).
 $displayoptions = array_intersect_key($alllanguageoptions, array_flip($adminallowed));
 
-// ── Current saved settings for this course ────────────────────────────────────
+// Current saved settings for this course.
 $existing = $DB->get_record('local_chirpvoice_course_settings', ['courseid' => $courseid]);
 
 // Read the saved voice.
@@ -144,9 +144,9 @@ if (empty($currentvoice)) {
 $currentlang = '';
 if ($existing && !empty($existing->allowedlanguages)) {
     // May be a legacy comma-separated list or a single code — take first valid entry.
-    $saved_codes = array_filter(array_map('trim', explode(',', $existing->allowedlanguages)));
-    $valid_codes = array_values(array_intersect($saved_codes, $adminallowed));
-    $currentlang = !empty($valid_codes) ? $valid_codes[0] : '';
+    $savedcodes = array_filter(array_map('trim', explode(',', $existing->allowedlanguages)));
+    $validcodes = array_values(array_intersect($savedcodes, $adminallowed));
+    $currentlang = !empty($validcodes) ? $validcodes[0] : '';
 }
 // Default to site-level default language if nothing saved.
 if (empty($currentlang)) {
@@ -154,7 +154,7 @@ if (empty($currentlang)) {
     $currentlang = in_array($sitedefault, $adminallowed) ? $sitedefault : $adminallowed[0];
 }
 
-// ── Handle form submission ────────────────────────────────────────────────────
+// Handle form submission.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_sesskey();
 
@@ -187,95 +187,104 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect(new moodle_url('/local/chirpvoice/course_settings.php', ['courseid' => $courseid, 'saved' => 1]));
 }
 
-// ── Output ────────────────────────────────────────────────────────────────────
+// Output.
 echo $OUTPUT->header();
-?>
 
-<div style="max-width:560px;margin:0 auto;padding:20px 0;">
+$onelang = count($displayoptions) <= 1;
+$fieldsetstyle = 'border:1px solid #dee2e6;border-radius:4px;padding:16px 20px;';
+$legendstyle = 'font-weight:600;font-size:1em;padding:0 6px;';
+$descstyle = 'color:#555;font-size:.93em;margin-top:0;margin-bottom:14px;';
+$selectstyle = 'width:100%;padding:8px 10px;border:1px solid #ced4da;border-radius:4px;font-size:1em;background:#fff;';
 
-  <h2 style="margin-bottom:4px;"><?php echo get_string('coursesettingstitle', 'local_chirpvoice'); ?></h2>
-  <p style="color:#555;margin-top:4px;margin-bottom:20px;">
-    <?php echo get_string('coursesettingsdesc', 'local_chirpvoice'); ?>
-  </p>
+echo html_writer::start_div('', ['style' => 'max-width:560px;margin:0 auto;padding:20px 0;']);
+echo html_writer::tag('h2', get_string('coursesettingstitle', 'local_chirpvoice'), ['style' => 'margin-bottom:4px;']);
+echo html_writer::tag(
+    'p',
+    get_string('coursesettingsdesc', 'local_chirpvoice'),
+    ['style' => 'color:#555;margin-top:4px;margin-bottom:20px;']
+);
 
-  <?php if ($saved): ?>
-  <div style="background:#d4edda;border:1px solid #c3e6cb;border-radius:4px;padding:10px 14px;margin-bottom:16px;color:#155724;">
-    <?php echo get_string('coursesettingssaved', 'local_chirpvoice'); ?>
-  </div>
-  <?php endif; ?>
+if ($saved) {
+    echo html_writer::div(get_string('coursesettingssaved', 'local_chirpvoice'), '', [
+        'style' => 'background:#d4edda;border:1px solid #c3e6cb;border-radius:4px;padding:10px 14px;'
+            . 'margin-bottom:16px;color:#155724;',
+    ]);
+}
 
-  <form method="post" action="">
-    <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+echo html_writer::start_tag('form', ['method' => 'post', 'action' => '']);
+echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
 
-    <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:16px 20px;margin-bottom:16px;">
-      <legend style="font-weight:600;font-size:1em;padding:0 6px;">
-        <?php echo get_string('coursesettingsvoiceheading', 'local_chirpvoice'); ?>
-      </legend>
-      <p style="color:#555;font-size:.93em;margin-top:0;margin-bottom:14px;">
-        <?php echo get_string('coursesettingsvoicedesc', 'local_chirpvoice'); ?>
-      </p>
-      <select name="coursevoice"
-              style="width:100%;padding:8px 10px;border:1px solid #ced4da;border-radius:4px;font-size:1em;background:#fff;">
-        <?php foreach ($voicegenders as $genderlabel => $gendervoices): ?>
-          <?php $groupvoices = array_intersect_key($displayvoices, array_flip($gendervoices)); ?>
-          <?php if (!empty($groupvoices)): ?>
-        <optgroup label="<?php echo s($genderlabel); ?>">
-          <?php foreach ($groupvoices as $vname => $vlabel): ?>
-          <option value="<?php echo s($vname); ?>"
-                  <?php echo ($vname === $currentvoice) ? 'selected' : ''; ?>>
-            <?php echo s($vlabel); ?>
-          </option>
-          <?php endforeach; ?>
-        </optgroup>
-          <?php endif; ?>
-        <?php endforeach; ?>
-      </select>
-    </fieldset>
+// Voice.
+echo html_writer::start_tag('fieldset', ['style' => $fieldsetstyle . 'margin-bottom:16px;']);
+echo html_writer::tag('legend', get_string('coursesettingsvoiceheading', 'local_chirpvoice'), ['style' => $legendstyle]);
+echo html_writer::tag('p', get_string('coursesettingsvoicedesc', 'local_chirpvoice'), ['style' => $descstyle]);
+echo html_writer::start_tag('select', ['name' => 'coursevoice', 'style' => $selectstyle]);
+foreach ($voicegenders as $genderlabel => $gendervoices) {
+    $groupvoices = array_intersect_key($displayvoices, array_flip($gendervoices));
+    if (empty($groupvoices)) {
+        continue;
+    }
+    echo html_writer::start_tag('optgroup', ['label' => $genderlabel]);
+    foreach ($groupvoices as $vname => $vlabel) {
+        $attrs = ['value' => $vname];
+        if ($vname === $currentvoice) {
+            $attrs['selected'] = 'selected';
+        }
+        echo html_writer::tag('option', s($vlabel), $attrs);
+    }
+    echo html_writer::end_tag('optgroup');
+}
+echo html_writer::end_tag('select');
+echo html_writer::end_tag('fieldset');
 
-    <fieldset style="border:1px solid #dee2e6;border-radius:4px;padding:16px 20px;margin-bottom:20px;">
-      <legend style="font-weight:600;font-size:1em;padding:0 6px;">
-        <?php echo get_string('coursesettingslangheading', 'local_chirpvoice'); ?>
-      </legend>
-      <p style="color:#555;font-size:.93em;margin-top:0;margin-bottom:14px;">
-        <?php echo get_string('coursesettingslangdesc', 'local_chirpvoice'); ?>
-      </p>
+// Language.
+echo html_writer::start_tag('fieldset', ['style' => $fieldsetstyle . 'margin-bottom:20px;']);
+echo html_writer::tag('legend', get_string('coursesettingslangheading', 'local_chirpvoice'), ['style' => $legendstyle]);
+echo html_writer::tag('p', get_string('coursesettingslangdesc', 'local_chirpvoice'), ['style' => $descstyle]);
+$selectattrs = ['name' => 'courselang', 'style' => $selectstyle];
+if ($onelang) {
+    $selectattrs['disabled'] = 'disabled';
+}
+echo html_writer::start_tag('select', $selectattrs);
+foreach ($displayoptions as $code => $label) {
+    $attrs = ['value' => $code];
+    if ($code === $currentlang) {
+        $attrs['selected'] = 'selected';
+    }
+    echo html_writer::tag('option', s($label), $attrs);
+}
+echo html_writer::end_tag('select');
+if ($onelang) {
+    echo html_writer::tag('p', get_string('coursesettingsonelang', 'local_chirpvoice'), [
+        'style' => 'color:#856404;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;'
+            . 'padding:8px 12px;margin-top:10px;font-size:.9em;',
+    ]);
+}
+echo html_writer::end_tag('fieldset');
 
-      <select name="courselang"
-              <?php echo count($displayoptions) <= 1 ? 'disabled' : ''; ?>
-              style="width:100%;padding:8px 10px;border:1px solid #ced4da;border-radius:4px;font-size:1em;background:#fff;">
-        <?php foreach ($displayoptions as $code => $label): ?>
-        <option value="<?php echo s($code); ?>"
-                <?php echo ($code === $currentlang) ? 'selected' : ''; ?>>
-          <?php echo s($label); ?>
-        </option>
-        <?php endforeach; ?>
-      </select>
+// Buttons.
+echo html_writer::start_div('', ['style' => 'display:flex;gap:10px;align-items:center;']);
+$buttonattrs = [
+    'type' => 'submit',
+    'style' => 'background:#1976d2;color:#fff;border:none;border-radius:4px;padding:8px 22px;font-size:1em;cursor:pointer;',
+];
+if ($onelang) {
+    $buttonattrs['disabled'] = 'disabled';
+}
+echo html_writer::tag('button', get_string('coursesettingssave', 'local_chirpvoice'), $buttonattrs);
+echo html_writer::link(
+    new moodle_url('/course/view.php', ['id' => $courseid]),
+    '&larr; ' . get_string('backtocourse', 'local_chirpvoice'),
+    ['style' => 'color:#555;text-decoration:none;font-size:.95em;']
+);
+echo html_writer::end_div();
+echo html_writer::end_tag('form');
 
-      <?php if (count($displayoptions) <= 1): ?>
-      <p style="color:#856404;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;margin-top:10px;font-size:.9em;">
-        <?php echo get_string('coursesettingsonelang', 'local_chirpvoice'); ?>
-      </p>
-      <?php endif; ?>
-    </fieldset>
+echo html_writer::div(
+    get_string('coursesettingsfooter', 'local_chirpvoice'),
+    '',
+    ['style' => 'margin-top:28px;padding-top:16px;border-top:1px solid #dee2e6;color:#888;font-size:.85em;']
+);
+echo html_writer::end_div();
 
-    <div style="display:flex;gap:10px;align-items:center;">
-      <button type="submit"
-              <?php echo count($displayoptions) <= 1 ? 'disabled' : ''; ?>
-              style="background:#1976d2;color:#fff;border:none;border-radius:4px;padding:8px 22px;font-size:1em;cursor:pointer;">
-        <?php echo get_string('coursesettingssave', 'local_chirpvoice'); ?>
-      </button>
-      <a href="<?php echo s((new moodle_url('/course/view.php', ['id' => $courseid]))->out(false)); ?>"
-         style="color:#555;text-decoration:none;font-size:.95em;">
-        &larr; <?php echo get_string('backtocourse', 'local_chirpvoice'); ?>
-      </a>
-    </div>
-  </form>
-
-  <div style="margin-top:28px;padding-top:16px;border-top:1px solid #dee2e6;color:#888;font-size:.85em;">
-    <?php echo get_string('coursesettingsfooter', 'local_chirpvoice'); ?>
-  </div>
-
-</div>
-
-<?php
 echo $OUTPUT->footer();

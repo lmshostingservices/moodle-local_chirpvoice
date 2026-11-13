@@ -11,81 +11,36 @@ define([], function() {
     'use strict';
 
     // ── State ──────────────────────────────────────────────────────────────────
-    var M_cfg         = {};
-    var toolbar       = null;
-    var iframeDoc     = null;
-    var iframeObs     = null;
-    var segments      = [];          // [{el, text}] current page segments
-    var isPlaying     = false;
-    var isPaused      = false;
-    var curIdx        = 0;
+    var mCfg = {};
+    var toolbar = null;
+    var iframeDoc = null;
+    var iframeObs = null;
+    var segments = []; // [{el, text}] current page segments
+    var isPlaying = false;
+    var isPaused = false;
+    var curIdx = 0;
 
     // AudioContext playback (avoids autoplay policy blocking async play())
-    var chirpCtx      = null;        // AudioContext — unlocked on first user gesture
-    var activeSource  = null;        // AudioBufferSourceNode currently playing
-    var activeBuffer  = null;        // AudioBuffer for the current segment (enables resume)
-    var activeOnDone  = null;        // onDone callback for when current segment ends
-    var segStartTime  = 0;           // ctx.currentTime when current segment started
-    var pauseOffset   = 0;           // playback position (seconds) when paused
+    var chirpCtx = null; // AudioContext — unlocked on first user gesture
+    var activeSource = null; // AudioBufferSourceNode currently playing
+    var activeBuffer = null; // AudioBuffer for the current segment (enables resume)
+    var activeOnDone = null; // OnDone callback for when current segment ends
+    var segStartTime = 0; // Ctx.currentTime when current segment started
+    var pauseOffset = 0; // Playback position (seconds) when paused
 
     // Speed control
-    var SPEED_STEPS   = [0.9, 1.0, 1.1];  // UI-CV-SPEED-SIMPLE (v1.1.19): three steps only
-    var chirpSpeed    = 1.0;         // current playback rate multiplier
+    var SPEED_STEPS = [0.9, 1.0, 1.1]; // UI-CV-SPEED-SIMPLE (v1.1.19): three steps only
+    var chirpSpeed = 1.0; // Current playback rate multiplier
 
     // Prefetch: stores the next segment's decoded AudioBuffer to eliminate gaps
-    var prefetchCache = {};          // { segmentIdx: AudioBuffer | 'pending' }
+    var prefetchCache = {}; // { segmentIdx: AudioBuffer | 'pending' }
 
     // UI-CV-NO-STUDENT-VOICE (v1.1.12): Voice and language are admin/teacher
-    // settings only — resolved once at toolbar build time from M_cfg defaults
+    // settings only — resolved once at toolbar build time from mCfg defaults
     // (validated against the admin-allowed list).  Students no longer see dropdowns.
     var resolvedVoice = 'Aoede';
-    var resolvedLang  = 'en-AU';
+    var resolvedLang = 'en-AU';
 
-    // ── Voice / Language options (males first, then females) ──────────────────
-    var VOICES = [
-        {v:'Charon', l:'Male \u2013 calm and measured'},
-        {v:'Fenrir', l:'Male \u2013 deep and authoritative'},
-        {v:'Orus',   l:'Male \u2013 warm and friendly'},
-        {v:'Puck',   l:'Male \u2013 young and playful'},
-        {v:'Aoede',  l:'Female \u2013 warm and expressive'},
-        {v:'Kore',   l:'Female \u2013 clear and professional'},
-        {v:'Leda',   l:'Female \u2013 soft and gentle'},
-        {v:'Zephyr', l:'Female \u2013 young and energetic'}
-    ];
-
-    var LANGS = [
-        {v:'en-AU', l:'English (AU)'},
-        {v:'en-US', l:'English (US)'},
-        {v:'en-GB', l:'English (UK)'},
-        {v:'fr-FR', l:'French'},
-        {v:'de-DE', l:'German'},
-        {v:'es-ES', l:'Spanish (ES)'},
-        {v:'es-US', l:'Spanish (US)'},
-        {v:'ja-JP', l:'Japanese'},
-        {v:'ko-KR', l:'Korean'},
-        {v:'pt-BR', l:'Portuguese (BR)'},
-        {v:'zh-CN', l:'Chinese (CN)'},
-        {v:'zh-TW', l:'Chinese (TW)'},
-        {v:'ar-XA', l:'Arabic'},
-        {v:'hi-IN', l:'Hindi'},
-        {v:'it-IT', l:'Italian'},
-        {v:'nl-NL', l:'Dutch'},
-        {v:'pl-PL', l:'Polish'},
-        {v:'ru-RU', l:'Russian'},
-        {v:'sv-SE', l:'Swedish'},
-        {v:'tr-TR', l:'Turkish'},
-        {v:'uk-UA', l:'Ukrainian'},
-        {v:'vi-VN', l:'Vietnamese'},
-        {v:'th-TH', l:'Thai'},
-        {v:'id-ID', l:'Indonesian'},
-        {v:'ms-MY', l:'Malay'},
-        {v:'fil-PH', l:'Filipino'},
-        {v:'cs-CZ', l:'Czech'},
-        {v:'da-DK', l:'Danish'},
-        {v:'fi-FI', l:'Finnish'},
-        {v:'nb-NO', l:'Norwegian'},
-        {v:'hu-HU', l:'Hungarian'}
-    ];
 
     // ── Elements that can NEVER contain readable narration ─────────────────────
     // NOTE: header/footer/figure are intentionally NOT here — Rise 360 uses
@@ -97,20 +52,20 @@ define([], function() {
     // be read aloud. hasForbiddenAncestor() already walks the full ancestor
     // chain, so adding 'nav' here blocks any descendant of a <nav>.
     var SKIP_TAGS = {
-        'script':1,'style':1,'svg':1,'img':1,'canvas':1,'video':1,'audio':1,
-        'noscript':1,'button':1,'input':1,'select':1,'textarea':1,
-        'iframe':1,'template':1,'meta':1,'link':1,
-        'nav':1
+        'script': 1, 'style': 1, 'svg': 1, 'img': 1, 'canvas': 1, 'video': 1, 'audio': 1,
+        'noscript': 1, 'button': 1, 'input': 1, 'select': 1, 'textarea': 1,
+        'iframe': 1, 'template': 1, 'meta': 1, 'link': 1,
+        'nav': 1
     };
 
     // Rise 360 CSS class substrings that indicate UI chrome (not narration).
     // Keep this list SHORT and unambiguous — substring matching is greedy and
     // will block content if patterns like "label" or "tag" are included.
     var SKIP_CLASS_PATTERNS = [
-        'sr-only','visually-hidden','skip-link','screen-reader',
-        'breadcrumb','pagination',
-        'tooltip','modal-backdrop','overlay--',
-        'course-nav','sidebar--','top-nav','bottom-nav'
+        'sr-only', 'visually-hidden', 'skip-link', 'screen-reader',
+        'breadcrumb', 'pagination',
+        'tooltip', 'modal-backdrop', 'overlay--',
+        'course-nav', 'sidebar--', 'top-nav', 'bottom-nav'
     ];
 
     // FIX-CV-IMG-LABELS (v1.1.8): Class substrings checked on ANCESTOR elements.
@@ -119,25 +74,30 @@ define([], function() {
     // SKIP_CLASS_PATTERNS (which checks the element) can't catch it. Ancestor
     // class checking mirrors the existing hasForbiddenAncestor tag check.
     var SKIP_ANCESTOR_CLASS_PATTERNS = [
-        'labeled-graphic',   // Rise 360: image with clickable hotspot labels
-        'labeled-graphic__', // sub-elements (labels, points, popups)
-        'hotspot',           // generic hotspot containers on images
-        'image-label',       // image label overlays
-        'figure__description', // figure/image description overlays
-        'image__description',  // image description blocks
-        'media-caption',     // caption overlays on media elements
-        'image-caption',     // image caption wrappers
-        'caption',           // FIX-CV-IMG-CAPTIONS: catches all caption variants —
+        'labeled-graphic', // Rise 360: image with clickable hotspot labels
+        'labeled-graphic__', // Sub-elements (labels, points, popups)
+        'hotspot', // Generic hotspot containers on images
+        'image-label', // Image label overlays
+        'figure__description', // Figure/image description overlays
+        'image__description', // Image description blocks
+        'media-caption', // Caption overlays on media elements
+        'image-caption', // Image caption wrappers
+        'caption', // FIX-CV-IMG-CAPTIONS: catches all caption variants —
                              // gallery-item__caption, block-gallery__caption,
                              // image__caption, gallery__caption, etc.
-        'block-gallery',     // Rise 360 image gallery block (3-up photo rows)
-        'image-gallery',     // Rise 360 image gallery component
-        'gallery-item'       // individual gallery item (image + caption pair)
+        'block-gallery', // Rise 360 image gallery block (3-up photo rows)
+        'image-gallery', // Rise 360 image gallery component
+        'gallery-item' // Individual gallery item (image + caption pair)
     ];
 
     // ── Public API ─────────────────────────────────────────────────────────────
+    /**
+     * Start the voiceover module.
+     *
+     * @param {Object} config Settings passed from PHP.
+     */
     function init(config) {
-        M_cfg = config || {};
+        mCfg = config || {};
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', setup);
         } else {
@@ -146,6 +106,9 @@ define([], function() {
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────────────
+    /**
+     * Build the toolbar and start watching for the SCORM frame.
+     */
     function setup() {
         buildToolbar();
         watchForIframe();
@@ -155,32 +118,39 @@ define([], function() {
     // UI-CV-NO-STUDENT-VOICE (v1.1.12): Voice and language dropdowns removed —
     // these are admin/teacher settings configured in the plugin options, not
     // student choices.  resolvedVoice / resolvedLang are set here once from
-    // M_cfg, validated against the admin-allowed list, and used for every fetch.
-    // FEAT-CV-COURSE-ACCENT (v1.1.28): M_cfg.courseLanguage (single code set by
+    // mCfg, validated against the admin-allowed list, and used for every fetch.
+    // FEAT-CV-COURSE-ACCENT (v1.1.28): mCfg.courseLanguage (single code set by
     // teacher via course_settings.php) takes priority over defaultLanguage.
+    /**
+     * Create the floating voiceover toolbar.
+     */
     function buildToolbar() {
         // Resolve effective voice — use admin default, fall back to first allowed.
-        var allowedVoiceList = M_cfg.allowedVoices
-            ? M_cfg.allowedVoices.split(',').map(function(s) { return s.trim(); }).filter(Boolean)
+        var allowedVoiceList = mCfg.allowedVoices
+            ? mCfg.allowedVoices.split(',').map(function(s) {
+                return s.trim();
+            }).filter(Boolean)
             : [];
-        var allowedLangList = M_cfg.allowedLanguages
-            ? M_cfg.allowedLanguages.split(',').map(function(s) { return s.trim(); }).filter(Boolean)
+        var allowedLangList = mCfg.allowedLanguages
+            ? mCfg.allowedLanguages.split(',').map(function(s) {
+                return s.trim();
+            }).filter(Boolean)
             : [];
 
         // Course voice takes priority over site default; fall back to site default.
-        // FEAT-CV-COURSE-VOICE (v1.1.29): M_cfg.courseVoice set by teacher per-course.
-        if (M_cfg.courseVoice && M_cfg.courseVoice.length > 0) {
-            resolvedVoice = M_cfg.courseVoice;
+        // FEAT-CV-COURSE-VOICE (v1.1.29): mCfg.courseVoice set by teacher per-course.
+        if (mCfg.courseVoice && mCfg.courseVoice.length > 0) {
+            resolvedVoice = mCfg.courseVoice;
         } else {
-            resolvedVoice = M_cfg.defaultVoice || 'Aoede';
+            resolvedVoice = mCfg.defaultVoice || 'Aoede';
         }
 
         // Course accent takes priority: teacher sets one accent via gear icon.
         // Falls back to site default language if not set.
-        if (M_cfg.courseLanguage && M_cfg.courseLanguage.length > 0) {
-            resolvedLang = M_cfg.courseLanguage;
+        if (mCfg.courseLanguage && mCfg.courseLanguage.length > 0) {
+            resolvedLang = mCfg.courseLanguage;
         } else {
-            resolvedLang = M_cfg.defaultLanguage || 'en-AU';
+            resolvedLang = mCfg.defaultLanguage || 'en-AU';
         }
 
         // Validate against admin-allowed lists; fall back to first if not found.
@@ -195,10 +165,12 @@ define([], function() {
         // (users with moodle/course:manageactivities) — links to course_settings.php
         // where the teacher can set the default language for their course.
         var gearLink = '';
-        if (M_cfg.canManageCourse && M_cfg.courseSettingsUrl) {
+        if (mCfg.canManageCourse && mCfg.courseSettingsUrl) {
             gearLink = '<a id="chirp-gear" class="chirp-gear" href="' +
-                       M_cfg.courseSettingsUrl +
-                       '" target="_blank" title="Set accent language for this course. Note: this changes the speaking accent, not the language of the content — the text is still read in English using the selected accent.">&#9881;</a>';
+                       mCfg.courseSettingsUrl +
+                       '" target="_blank" title="Set accent language for this course. ' +
+                       'Note: this changes the speaking accent, not the language of the content. ' +
+                       'The text is still read in English using the selected accent.">&#9881;</a>';
         }
 
         toolbar = document.createElement('div');
@@ -221,18 +193,29 @@ define([], function() {
 
         document.getElementById('chirp-slower').addEventListener('click', function() {
             var idx = SPEED_STEPS.indexOf(chirpSpeed);
-            if (idx > 0) { setSpeed(SPEED_STEPS[idx - 1]); }
+            if (idx > 0) {
+                setSpeed(SPEED_STEPS[idx - 1]);
+            }
         });
         document.getElementById('chirp-faster').addEventListener('click', function() {
             var idx = SPEED_STEPS.indexOf(chirpSpeed);
-            if (idx < SPEED_STEPS.length - 1) { setSpeed(SPEED_STEPS[idx + 1]); }
+            if (idx < SPEED_STEPS.length - 1) {
+                setSpeed(SPEED_STEPS[idx + 1]);
+            }
         });
     }
 
+    /**
+     * Change the reading speed.
+     *
+     * @param {Number} rate Speed multiplier (0.9, 1.0 or 1.1).
+     */
     function setSpeed(rate) {
         chirpSpeed = rate;
         var lbl = document.getElementById('chirp-speed-lbl');
-        if (lbl) { lbl.textContent = rate.toFixed(2).replace(/\.?0+$/, '') + '\u00d7'; }
+        if (lbl) {
+            lbl.textContent = rate.toFixed(2).replace(/\.?0+$/, '') + '\u00d7';
+        }
         // FEAT-CV-SPEAKINGRATE (v1.1.18): Speed is now passed as speakingRate to the
         // Google TTS API so the audio is generated at the correct pace natively.
         // Changing AudioBufferSourceNode.playbackRate after the fact raised pitch
@@ -243,35 +226,53 @@ define([], function() {
         prefetchCache = {};
         if (isPlaying && !isPaused) {
             if (activeSource) {
-                try { activeSource.onended = null; activeSource.stop(); } catch (e) {}
+                try {
+                    activeSource.onended = null;
+                    activeSource.stop();
+                } catch (e) {
+                    // Ignore: the source may already have stopped.
+                }
                 activeSource = null;
             }
             activeBuffer = null;
             activeOnDone = null;
-            pauseOffset  = 0;
+            pauseOffset = 0;
             playSegAt(curIdx);
         }
     }
 
-    function setStatus(msg) { /* status display removed */ }
+    /**
+     * Status text is no longer shown; kept so existing calls stay valid.
+     */
+    function setStatus() {
+        // Status display removed in v1.1.35.
+    }
 
+    /**
+     * Show the play or pause state on the toolbar buttons.
+     *
+     * @param {Boolean} playing True while audio is playing.
+     */
     function setBtns(playing) {
-        var play  = document.getElementById('chirp-play');
+        var play = document.getElementById('chirp-play');
         var pause = document.getElementById('chirp-pause');
-        var stop  = document.getElementById('chirp-stop');
-        if (!play) { return; }
-        play.disabled  = playing;
+        var stop = document.getElementById('chirp-stop');
+        if (!play) {
+            return;
+        }
+        play.disabled = playing;
         pause.disabled = !playing;
-        stop.disabled  = !playing;
-        if (!playing) { pause.innerHTML = '&#9646;&#9646; Pause'; }
+        stop.disabled = !playing;
+        if (!playing) {
+            pause.innerHTML = '&#9646;&#9646; Pause';
+        }
     }
 
-    function sel(id) {
-        var el = document.getElementById(id);
-        return el ? el.value : '';
-    }
 
     // ── SCORM iframe detection ─────────────────────────────────────────────────
+    /**
+     * Poll the page until the SCORM frame appears.
+     */
     function watchForIframe() {
         var attempts = 0;
         var t = setInterval(function() {
@@ -282,13 +283,18 @@ define([], function() {
                 setStatus('SCORM found, loading&#8230;');
                 onFrameFound(frame);
             }
-            if (attempts > 120) {         // 60 s timeout
+            if (attempts > 120) { // 60 s timeout
                 clearInterval(t);
                 setStatus('SCORM iframe not detected');
             }
         }, 500);
     }
 
+    /**
+     * Find the SCORM player frame on the page.
+     *
+     * @returns {HTMLIFrameElement|null} The frame, or null if not found.
+     */
     function findFrame() {
         return (
             document.getElementById('scorm_object') ||
@@ -299,6 +305,21 @@ define([], function() {
             document.querySelector('iframe[src*="scormcontent"]') ||
             document.querySelector('iframe[src*="index.html"]')
         );
+    }
+
+    /**
+     * Return a child frame's document, or null when it is cross-origin or not loaded.
+     *
+     * @param {HTMLIFrameElement} frame The child frame.
+     * @return {Document|null}
+     */
+    function childDocument(frame) {
+        try {
+            return frame.contentDocument || (frame.contentWindow ? frame.contentWindow.document : null);
+        } catch (e) {
+            // Cross-origin frame: skip it.
+            return null;
+        }
     }
 
     // FIX-CV-RISE-DETECT (v1.1.0): Recursive Rise 360 document finder.
@@ -319,9 +340,17 @@ define([], function() {
     // .block-text__container inside its lesson documents. Recursively drill into
     // child iframes until these classes are found. If not found (non-Rise SCORM),
     // fall back to text-length heuristic via findAnyContentDoc().
+    /**
+     * Find the Rise 360 lesson document, searching nested frames.
+     *
+     * @param {Document|null} doc Document to check.
+     * @returns {Document|null} The Rise document, or null.
+     */
     function findRiseDocument(doc) {
         try {
-            if (!doc || !doc.body) { return null; }
+            if (!doc || !doc.body) {
+                return null;
+            }
             // Rise 360 fingerprint — present in every Rise lesson document.
             if (doc.querySelector('.fr-view') ||
                 doc.querySelector('.block-text__container')) {
@@ -330,45 +359,49 @@ define([], function() {
             // Recursively check child iframes.
             var frames = doc.querySelectorAll('iframe');
             for (var i = 0; i < frames.length; i++) {
-                try {
-                    var childDoc = frames[i].contentDocument;
-                    if (!childDoc && frames[i].contentWindow) {
-                        childDoc = frames[i].contentWindow.document;
-                    }
-                    if (childDoc) {
-                        var found = findRiseDocument(childDoc);
-                        if (found) { return found; }
-                    }
-                } catch (e) { /* cross-origin — skip */ }
+                var found = findRiseDocument(childDocument(frames[i]));
+                if (found) {
+                    return found;
+                }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            // Unreadable document: treat it as not Rise.
+        }
         return null;
     }
 
     // Fallback for non-Rise SCORM: finds the child iframe with the most text,
     // or returns the outer doc itself when no nested frames have enough content.
+    /**
+     * Find the frame document with the most text, for SCORM that is not Rise.
+     *
+     * @param {Document} outerDoc The SCORM document.
+     * @returns {Document} The content document.
+     */
     function findAnyContentDoc(outerDoc) {
         try {
             var frames = outerDoc.querySelectorAll('iframe');
             for (var i = 0; i < frames.length; i++) {
-                try {
-                    var childDoc = frames[i].contentDocument;
-                    if (!childDoc && frames[i].contentWindow) {
-                        childDoc = frames[i].contentWindow.document;
-                    }
-                    if (childDoc && childDoc.body) {
-                        var childText = (childDoc.body.textContent || '').trim();
-                        if (childText.length > 100) {
-                            return childDoc;
-                        }
-                    }
-                } catch (e) { /* cross-origin — skip */ }
+                var childDoc = childDocument(frames[i]);
+                if (childDoc && childDoc.body && (childDoc.body.textContent || '').trim().length > 100) {
+                    return childDoc;
+                }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            // Unreadable document: use the outer document.
+        }
         return outerDoc;
     }
 
+    /**
+     * Wait until the SCORM frame can be read, then load its content.
+     *
+     * @param {HTMLIFrameElement} frame The SCORM frame.
+     */
     function onFrameFound(frame) {
+        /**
+         * Try to read the frame document, retrying while it loads.
+         */
         function tryAccess() {
             try {
                 var outerDoc = frame.contentDocument || frame.contentWindow.document;
@@ -376,7 +409,7 @@ define([], function() {
                     // Pass the outer frame directly — waitForContent() will call
                     // resolveContentDoc() on every poll tick so it can switch to a
                     // child iframe (e.g. scormdriver_content) once it has loaded.
-                    waitForContent(frame, outerDoc);
+                    waitForContent(frame);
                 } else {
                     setTimeout(tryAccess, 1500);
                 }
@@ -393,7 +426,7 @@ define([], function() {
                 setTimeout(tryAccess, 800);
                 return;
             }
-        } catch (e) { /* cross-origin check */ }
+        } catch (e) { /* Cross-origin check */ }
 
         frame.addEventListener('load', function() {
             setTimeout(tryAccess, 800);
@@ -437,7 +470,12 @@ define([], function() {
         '[class*="sorting-layout__text"]'
     ].join(',');
 
-    function waitForContent(frame, doc) {
+    /**
+     * Wait until the lesson text has rendered inside the frame.
+     *
+     * @param {HTMLIFrameElement} frame The SCORM frame.
+     */
+    function waitForContent(frame) {
         var attempts = 0;
 
         var t = setInterval(function() {
@@ -466,7 +504,7 @@ define([], function() {
                     clearInterval(t);
                     iframeDoc = contentDoc;
                     onContentReady(contentDoc);
-                } else if (attempts > 80) {   // 40 s timeout
+                } else if (attempts > 80) { // 40 s timeout
                     clearInterval(t);
                     setStatus('No readable text found \u2014 ensure SCORM is on a lesson page');
                 } else {
@@ -489,22 +527,34 @@ define([], function() {
     // We use the already-resolved iframeDoc directly in the setTimeout — previously
     // it re-accessed frame.contentDocument which would return the outer SCORM shell
     // document when frame was the outer wrapper (not the nested Rise 360 iframe).
+    /**
+     * Prepare the readable sections once the lesson has loaded.
+     *
+     * @param {Document} doc The lesson document.
+     */
     function onContentReady(doc) {
         injectIframeStyles(doc);
         watchContentMutations(doc);
         setTimeout(function() {
             try {
                 rebuildIcons(iframeDoc);
-            } catch (e) { /* cross-origin race */ }
+            } catch (e) { /* Cross-origin race */ }
         }, 1200);
     }
 
     // ── Extract text segments and inject speaker icons ─────────────────────────
+    /**
+     * Re-read the lesson sections and add the reading styles.
+     *
+     * @param {Document} doc The lesson document.
+     */
     function rebuildIcons(doc) {
         // Remove any previously injected icons (from older plugin versions).
         var old = doc.querySelectorAll('.chirp-icon');
         for (var i = 0; i < old.length; i++) {
-            if (old[i].parentNode) { old[i].parentNode.removeChild(old[i]); }
+            if (old[i].parentNode) {
+                old[i].parentNode.removeChild(old[i]);
+            }
         }
 
         segments = extractSegments(doc);
@@ -516,6 +566,12 @@ define([], function() {
         }
     }
 
+    /**
+     * Collect the readable text sections of the lesson.
+     *
+     * @param {Document} doc The lesson document.
+     * @returns {Array} Sections as {el, text}.
+     */
     function extractSegments(doc) {
         // FIX-CV-FALLBACK (v1.0.5): Previously the Rise 360 fallback selector
         // only ran when candidates.length === 0 (no DOM nodes found at all).
@@ -529,16 +585,23 @@ define([], function() {
         if (results.length === 0) {
             try {
                 results = extractFromCandidates(doc, doc.querySelectorAll(RISE_FALLBACK_SELECTOR));
-            } catch (e) { /* ignore invalid selector in older browsers */ }
+            } catch (e) { /* Ignore invalid selector in older browsers */ }
         }
 
         return results;
     }
 
+    /**
+     * Turn candidate elements into readable sections, skipping hidden and duplicate text.
+     *
+     * @param {Document} doc The lesson document.
+     * @param {NodeList} candidates Elements to consider.
+     * @returns {Array} Sections as {el, text}.
+     */
     function extractFromCandidates(doc, candidates) {
-        var results  = [];
-        var seenEls  = [];   // deduplicate DOM nodes
-        var seenText = [];   // FIX-CV-AUDIT-DUP (v1.0.6): deduplicate by text content.
+        var results = [];
+        var seenEls = []; // Deduplicate DOM nodes
+        var seenText = []; // FIX-CV-AUDIT-DUP (v1.0.6): deduplicate by text content.
                              // Rise 360 sometimes renders the same paragraph in both
                              // a visible element AND an aria-labelled screen-reader clone.
                              // Both pass isAriaHidden() (neither has aria-hidden="true")
@@ -549,11 +612,21 @@ define([], function() {
         for (var i = 0; i < candidates.length; i++) {
             var el = candidates[i];
 
-            if (seenEls.indexOf(el) !== -1) { continue; }
-            if (hasForbiddenAncestor(el)) { continue; }
-            if (hasForbiddenAncestorClass(el)) { continue; }  // FIX-CV-IMG-LABELS (v1.1.8)
-            if (isAriaHidden(el)) { continue; }
-            if (hasSkipClass(el)) { continue; }
+            if (seenEls.indexOf(el) !== -1) {
+                continue;
+            }
+            if (hasForbiddenAncestor(el)) {
+                continue;
+            }
+            if (hasForbiddenAncestorClass(el)) {
+                continue;
+            } // FIX-CV-IMG-LABELS (v1.1.8)
+            if (isAriaHidden(el)) {
+                continue;
+            }
+            if (hasSkipClass(el)) {
+                continue;
+            }
 
             // FIX-CV-LI-DUP (v1.1.7): Rise 360 renders <li><p>text</p></li>.
             // Both the <li> and the child <p> are in CONTENT_SELECTOR, causing
@@ -565,9 +638,15 @@ define([], function() {
             }
 
             var text = cleanText(el);
-            if (!text || text.length < 6) { continue; }
-            if (/^[\d\s\W]+$/.test(text)) { continue; }
-            if (seenText.indexOf(text) !== -1) { continue; }
+            if (!text || text.length < 6) {
+                continue;
+            }
+            if (/^[\d\s\W]+$/.test(text)) {
+                continue;
+            }
+            if (seenText.indexOf(text) !== -1) {
+                continue;
+            }
 
             seenEls.push(el);
             seenText.push(text);
@@ -577,11 +656,19 @@ define([], function() {
         return results;
     }
 
+    /**
+     * Check whether the element sits inside navigation, images or other parts that are not read.
+     *
+     * @param {Element} el Element to check.
+     * @returns {Boolean} True if it should be skipped.
+     */
     function hasForbiddenAncestor(el) {
         var node = el.parentElement;
         while (node && node !== document.body) {
             var tag = node.tagName ? node.tagName.toLowerCase() : '';
-            if (SKIP_TAGS[tag]) { return true; }
+            if (SKIP_TAGS[tag]) {
+                return true;
+            }
             node = node.parentElement;
         }
         return false;
@@ -590,18 +677,32 @@ define([], function() {
     // FIX-CV-IMG-LABELS (v1.1.8): Check ancestor CSS classes as well as tags.
     // A <p> inside .labeled-graphic__label won't have that class itself — only
     // ancestor class matching can block it. Mirrors hasForbiddenAncestor logic.
+    /**
+     * Check whether an ancestor has a class marking image labels, captions or galleries.
+     *
+     * @param {Element} el Element to check.
+     * @returns {Boolean} True if it should be skipped.
+     */
     function hasForbiddenAncestorClass(el) {
         var node = el.parentElement;
         while (node && node !== document.body) {
             var cls = (node.className || '').toLowerCase();
             for (var j = 0; j < SKIP_ANCESTOR_CLASS_PATTERNS.length; j++) {
-                if (cls.indexOf(SKIP_ANCESTOR_CLASS_PATTERNS[j]) !== -1) { return true; }
+                if (cls.indexOf(SKIP_ANCESTOR_CLASS_PATTERNS[j]) !== -1) {
+                    return true;
+                }
             }
             node = node.parentElement;
         }
         return false;
     }
 
+    /**
+     * Check whether the element or an ancestor is hidden from screen readers.
+     *
+     * @param {Element} el Element to check.
+     * @returns {Boolean} True if hidden.
+     */
     function isAriaHidden(el) {
         var node = el;
         while (node) {
@@ -613,14 +714,28 @@ define([], function() {
         return false;
     }
 
+    /**
+     * Check whether the element has a class that marks it as not readable.
+     *
+     * @param {Element} el Element to check.
+     * @returns {Boolean} True if it should be skipped.
+     */
     function hasSkipClass(el) {
         var className = (el.className || '').toLowerCase();
         for (var i = 0; i < SKIP_CLASS_PATTERNS.length; i++) {
-            if (className.indexOf(SKIP_CLASS_PATTERNS[i]) !== -1) { return true; }
+            if (className.indexOf(SKIP_CLASS_PATTERNS[i]) !== -1) {
+                return true;
+            }
         }
         return false;
     }
 
+    /**
+     * Get the readable text of an element, without hidden and image text.
+     *
+     * @param {Element} el Element to read.
+     * @returns {String} The cleaned text.
+     */
     function cleanText(el) {
         var clone = el.cloneNode(true);
 
@@ -643,7 +758,7 @@ define([], function() {
         return (clone.textContent || clone.innerText || '').replace(/\s+/g, ' ').trim();
     }
 
-    // injectIcon removed in v1.1.6 — per-paragraph icons replaced by toolbar-only UX.
+    // InjectIcon removed in v1.1.6 — per-paragraph icons replaced by toolbar-only UX.
 
     // ── Mutation observer: re-inject when Rise 360 navigates to next screen ────
     // FIX-CV-RISE-DETECT (v1.1.0): Signature changed from (frame, doc) to (doc).
@@ -652,8 +767,15 @@ define([], function() {
     // mutation callback now uses iframeDoc directly (already the resolved Rise 360
     // document) instead of re-accessing frame.contentDocument (which would return
     // the outer SCORM shell document if frame was the wrapper, not the Rise frame).
+    /**
+     * Rescan the lesson when Rise renders new content.
+     *
+     * @param {Document} doc The lesson document.
+     */
     function watchContentMutations(doc) {
-        if (iframeObs) { iframeObs.disconnect(); }
+        if (iframeObs) {
+            iframeObs.disconnect();
+        }
 
         var debounce = null;
 
@@ -663,22 +785,28 @@ define([], function() {
             for (var i = 0; i < mutations.length; i++) {
                 var added = mutations[i].addedNodes;
                 for (var j = 0; j < added.length; j++) {
-                    if (added[j].nodeType === 1) {   // ELEMENT_NODE
+                    if (added[j].nodeType === 1) { // ELEMENT_NODE
                         hasNewElements = true;
                         break;
                     }
                 }
-                if (hasNewElements) { break; }
+                if (hasNewElements) {
+                    break;
+                }
             }
-            if (!hasNewElements) { return; }
+            if (!hasNewElements) {
+                return;
+            }
 
-            if (debounce) { clearTimeout(debounce); }
+            if (debounce) {
+                clearTimeout(debounce);
+            }
             debounce = setTimeout(function() {
                 try {
-                    // iframeDoc is already the resolved Rise 360 content document.
+                    // IframeDoc is already the resolved Rise 360 content document.
                     stopAll();
                     rebuildIcons(iframeDoc);
-                } catch (e) { /* cross-origin race */ }
+                } catch (e) { /* Cross-origin race */ }
             }, 900);
         });
 
@@ -686,10 +814,17 @@ define([], function() {
     }
 
     // ── Inject CSS into the Rise 360 iframe ───────────────────────────────────
+    /**
+     * Add the highlight styles to the lesson document.
+     *
+     * @param {Document} doc The lesson document.
+     */
     function injectIframeStyles(doc) {
-        if (doc.getElementById('chirp-iframe-css')) { return; }
-        var s       = doc.createElement('style');
-        s.id        = 'chirp-iframe-css';
+        if (doc.getElementById('chirp-iframe-css')) {
+            return;
+        }
+        var s = doc.createElement('style');
+        s.id = 'chirp-iframe-css';
         s.textContent =
             /* Currently-reading element highlight (v1.1.10).
                box-shadow: inset keeps the border INSIDE the element box so it
@@ -704,7 +839,9 @@ define([], function() {
             '  z-index:1;' +
             '  transition:background 0.25s,box-shadow 0.25s;' +
             '}';
-        if (doc.head) { doc.head.appendChild(s); }
+        if (doc.head) {
+            doc.head.appendChild(s);
+        }
     }
 
     // ── AudioContext helpers ───────────────────────────────────────────────────
@@ -723,19 +860,43 @@ define([], function() {
     // synchronously inside the user-gesture handler (required by all browsers).
     // The callback fires in the .then() microtask — still within the gesture
     // window for Chrome, and safely after resume for Safari.
-    function unlockAudioCtx(cb) {
+    /**
+     * Unlock audio during the user's click, then run the callback.
+     *
+     * @param {Function} onReady Runs once audio can play.
+     */
+    function unlockAudioCtx(onReady) {
+        /**
+         * Run the ready callback.
+         *
+         * @returns {null} Nothing.
+         */
+        var run = function() {
+            if (onReady) {
+                onReady();
+            }
+            return null;
+        };
         if (!chirpCtx) {
             chirpCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         if (chirpCtx.state === 'suspended') {
-            chirpCtx.resume().then(function() { if (cb) { cb(); } });
+            // If resume fails, still try to play: the browser reports its own error.
+            chirpCtx.resume().then(run).catch(run);
         } else {
-            if (cb) { cb(); }
+            run();
         }
     }
 
     // Start playing an AudioBuffer from a given offset (seconds).
     // Stores references so pause/resume can stop and restart from same position.
+    /**
+     * Play decoded audio from an offset, keeping state for pause and resume.
+     *
+     * @param {AudioBuffer} buffer Decoded audio.
+     * @param {Number} offset Start position in seconds.
+     * @param {Function} onDone Runs when the audio ends.
+     */
     function _playBuffer(buffer, offset, onDone) {
         activeBuffer = buffer;
         activeOnDone = onDone;
@@ -748,19 +909,28 @@ define([], function() {
         // DO NOT set playbackRate here — it shifts pitch (chipmunk effect).
         activeSource.onended = function() {
             activeSource = null;
-            pauseOffset  = 0;
-            if (onDone && isPlaying) { onDone(); }
+            pauseOffset = 0;
+            if (onDone && isPlaying) {
+                onDone();
+            }
         };
         activeSource.start(0, offset);
     }
 
     // ── Playback: Play All ─────────────────────────────────────────────────────
+    /**
+     * Read every section from the start.
+     */
     function onPlayAll() {
         // FIX-CV-CONTENT-DELAY (v1.0.2): if segments is still empty (e.g. the
         // user clicked Play before the async 1.2 s rebuild fired), do a
         // synchronous rescan of the current iframeDoc before giving up.
         if (segments.length === 0 && iframeDoc) {
-            try { rebuildIcons(iframeDoc); } catch (e) {}
+            try {
+                rebuildIcons(iframeDoc);
+            } catch (e) {
+                // Ignore: the rescan is a best-effort retry.
+            }
         }
         if (segments.length === 0) {
             setStatus('No content found \u2014 navigate to a lesson page and try again.');
@@ -772,7 +942,7 @@ define([], function() {
         // "Error: AI Voiceover is not configured..." — but since #chirp-status
         // had been removed from the toolbar in v1.1.13, the message was
         // invisible. Now we show it before even attempting the XHR.
-        if (!M_cfg.hasCredentials) {
+        if (!mCfg.hasCredentials) {
             setStatus('Not configured \u2014 set Site ID & API Key in Site Admin \u2192 AI SCORM Voiceover.');
             return;
         }
@@ -783,39 +953,28 @@ define([], function() {
         unlockAudioCtx(function() {
             stopAll();
             isPlaying = true;
-            isPaused  = false;
-            curIdx    = 0;
+            isPaused = false;
+            curIdx = 0;
             setBtns(true);
             playSegAt(0);
         });
     }
 
-    // ── Playback: single segment (from inline icon click) ─────────────────────
-    function playSingle(idx) {
-        if (idx < 0 || idx >= segments.length) { return; }
-        // FIX-CV-MAC-RESUME (v1.1.32): same callback pattern as onPlayAll().
-        unlockAudioCtx(function() {
-            stopAll();
-            isPlaying = true;
-            isPaused  = false;
-            curIdx    = idx;
-            setBtns(true);
-            highlightSeg(idx);
-            
-            fetchAndPlay(segments[idx].text, function() {
-                clearHl();
-                finishAll();
-            });
-        });
-    }
 
+    /**
+     * Read the section at an index, then move to the next.
+     *
+     * @param {Number} idx Section index.
+     */
     function playSegAt(idx) {
         if (!isPlaying || isPaused || idx >= segments.length) {
-            if (idx >= segments.length && isPlaying) { finishAll(); }
+            if (idx >= segments.length && isPlaying) {
+                finishAll();
+            }
             return;
         }
         curIdx = idx;
-        
+
         highlightSeg(idx);
         fetchAndPlay(segments[idx].text, function() {
             clearHl();
@@ -826,56 +985,82 @@ define([], function() {
     }
 
     // ── Playback: Pause / Resume ───────────────────────────────────────────────
+    /**
+     * Pause or resume reading.
+     */
     function onPauseResume() {
         var btn = document.getElementById('chirp-pause');
-        if (!chirpCtx) { return; }
+        if (!chirpCtx) {
+            return;
+        }
         if (!isPaused) {
             // Pause: stop the source and record where we are
             if (activeSource) {
                 pauseOffset = Math.max(0, chirpCtx.currentTime - segStartTime);
-                try { activeSource.onended = null; activeSource.stop(); } catch (e) {}
+                try {
+                    activeSource.onended = null;
+                    activeSource.stop();
+                } catch (e) {
+                    // Ignore: the source may already have stopped.
+                }
                 activeSource = null;
             }
-            isPaused  = true;
+            isPaused = true;
             isPlaying = false;
-            if (btn) { btn.innerHTML = '&#9654; Resume'; }
+            if (btn) {
+                btn.innerHTML = '&#9654; Resume';
+            }
         } else {
             // Resume: restart from saved offset
             if (activeBuffer) {
-                isPaused  = false;
+                isPaused = false;
                 isPlaying = true;
-                if (btn) { btn.innerHTML = '&#9646;&#9646; Pause'; }
+                if (btn) {
+                    btn.innerHTML = '&#9646;&#9646; Pause';
+                }
                 _playBuffer(activeBuffer, pauseOffset, activeOnDone);
             }
         }
     }
 
     // ── Playback: Stop ─────────────────────────────────────────────────────────
+    /**
+     * Stop reading.
+     */
     function onStop() {
         stopAll();
         finishAll();
     }
 
+    /**
+     * Stop audio and clear the reading state.
+     */
     function stopAll() {
         isPlaying = false;
         if (activeSource) {
-            try { activeSource.onended = null; activeSource.stop(); } catch (e) {}
+            try {
+                activeSource.onended = null;
+                activeSource.stop();
+            } catch (e) {
+                // Ignore: the source may already have stopped.
+            }
             activeSource = null;
         }
-        activeBuffer  = null;
-        activeOnDone  = null;
-        pauseOffset   = 0;
-        prefetchCache = {};   // discard any pre-fetched buffers on stop
+        activeBuffer = null;
+        activeOnDone = null;
+        pauseOffset = 0;
+        prefetchCache = {}; // Discard any pre-fetched buffers on stop
         clearHl();
     }
 
+    /**
+     * Reset the toolbar after the last section.
+     */
     function finishAll() {
         isPlaying = false;
-        isPaused  = false;
+        isPaused = false;
         clearHl();
         setBtns(false);
-        var count = segments.length;
-        
     }
 
     // ── Highlight currently-reading element ────────────────────────────────────
@@ -884,38 +1069,72 @@ define([], function() {
     // <p> leaves the list-item marker area unstyled and looks wrong.  Walk up to the
     // parent <li> (if one exists within two hops) so the highlight covers the whole
     // visual bullet.  Stop at ul/ol/div/section — never climb past a list container.
+    /**
+     * Choose the element to highlight; a bullet's paragraph highlights its whole list item.
+     *
+     * @param {Element} el The section element.
+     * @returns {Element} The element to highlight.
+     */
     function getHighlightEl(el) {
         var tag = el.tagName ? el.tagName.toLowerCase() : '';
-        if (tag === 'li') { return el; }
+        if (tag === 'li') {
+            return el;
+        }
         var par = el.parentElement;
         while (par) {
             var ptag = par.tagName ? par.tagName.toLowerCase() : '';
-            if (ptag === 'li') { return par; }
+            if (ptag === 'li') {
+                return par;
+            }
             if (ptag === 'ul' || ptag === 'ol' || ptag === 'div' ||
-                ptag === 'section' || ptag === 'article' || ptag === 'body') { break; }
+                ptag === 'section' || ptag === 'article' || ptag === 'body') {
+                    break;
+                }
             par = par.parentElement;
         }
         return el;
     }
 
+    /**
+     * Highlight a section and scroll it into view.
+     *
+     * @param {Number} idx Section index.
+     */
     function highlightSeg(idx) {
         clearHl();
         var seg = segments[idx];
-        if (!seg) { return; }
+        if (!seg) {
+            return;
+        }
         var hlEl = getHighlightEl(seg.el);
         hlEl.classList.add('chirp-hl');
         try {
             hlEl.scrollIntoView({behavior: 'smooth', block: 'center'});
-        } catch (e) {}
+        } catch (e) {
+            // Ignore: older browsers do not support smooth scrolling.
+        }
     }
 
+    /**
+     * Remove the current highlight.
+     */
     function clearHl() {
-        if (!iframeDoc) { return; }
+        if (!iframeDoc) {
+            return;
+        }
         var hls = iframeDoc.querySelectorAll('.chirp-hl');
-        for (var i = 0; i < hls.length; i++) { hls[i].classList.remove('chirp-hl'); }
+        for (var i = 0; i < hls.length; i++) {
+            hls[i].classList.remove('chirp-hl');
+        }
     }
 
     // ── TTS fetch via ajax.php ─────────────────────────────────────────────────
+    /**
+     * Fetch speech for the text and play it.
+     *
+     * @param {String} text Text to read.
+     * @param {Function} onDone Runs when playback ends.
+     */
     function fetchAndPlay(text, onDone) {
         // PERF-CV-PREFETCH (v1.1.7): Check if the next segment was pre-fetched
         // while the previous one was playing — use it directly to eliminate gaps.
@@ -928,7 +1147,12 @@ define([], function() {
             // stopAll() also wipes prefetchCache entirely, defeating the prefetch.
             // Instead, just defensively stop any lingering audio source.
             if (activeSource) {
-                try { activeSource.onended = null; activeSource.stop(); } catch (e) {}
+                try {
+                    activeSource.onended = null;
+                    activeSource.stop();
+                } catch (e) {
+                    // Ignore: the source may already have stopped.
+                }
                 activeSource = null;
             }
             isPlaying = true;
@@ -938,15 +1162,17 @@ define([], function() {
         }
 
         var voice = resolvedVoice;
-        var lang  = resolvedLang;
+        var lang = resolvedLang;
 
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', M_cfg.proxyUrl, true);
+        xhr.open('POST', mCfg.proxyUrl, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
         xhr.onload = function() {
-            if (!isPlaying && !isPaused) { return; }
+            if (!isPlaying && !isPaused) {
+                return;
+            }
             var resp;
             try {
                 resp = JSON.parse(xhr.responseText);
@@ -977,13 +1203,13 @@ define([], function() {
         xhr.timeout = 30000;
 
         var body = {
-            sesskey      : M_cfg.sesskey,
-            action       : 'synthesize',
-            text         : text.substring(0, 4500),
-            voice        : voice,
-            language     : lang,
-            speakingRate : chirpSpeed,         // FEAT-CV-SPEAKINGRATE (v1.1.18)
-            courseid     : M_cfg.courseId || 0
+            sesskey: mCfg.sesskey,
+            action: 'synthesize',
+            text: text.substring(0, 4500),
+            voice: voice,
+            language: lang,
+            speakingRate: chirpSpeed, // FEAT-CV-SPEAKINGRATE (v1.1.18)
+            courseid: mCfg.courseId || 0
         };
 
         // FIX-CV-HEADING-GAP (v1.1.23): kick off the NEXT segment's fetch in parallel
@@ -1024,16 +1250,28 @@ define([], function() {
     // can expose the gap.
     // isCascade is now a numeric depth (0 = normal, 1 = first cascade,
     // 2 = second cascade). Cascade stops at depth ≥ 2.
+    /**
+     * Fetch the next section's speech in the background so there is no gap.
+     *
+     * @param {Number} idx Section index.
+     * @param {Number} cascadeDepth How many prefetches deep this call is (0 for the first).
+     */
     function prefetchNext(idx, cascadeDepth) {
         cascadeDepth = cascadeDepth || 0;
-        if (!isPlaying || !chirpCtx) { return; }
-        if (idx >= segments.length) { return; }
-        if (prefetchCache[idx]) { return; }   // already fetching or fetched
+        if (!isPlaying || !chirpCtx) {
+            return;
+        }
+        if (idx >= segments.length) {
+            return;
+        }
+        if (prefetchCache[idx]) {
+            return;
+        } // Already fetching or fetched
 
         prefetchCache[idx] = 'pending';
 
         var voice = resolvedVoice;
-        var lang  = resolvedLang;
+        var lang = resolvedLang;
         // FIX-CV-PREFETCH-SPEED (v1.1.24): capture speed at send time.
         // If the user changes speed before this XHR returns, the audio is stale
         // (baked at the old speakingRate). Discard it so the correct-speed audio
@@ -1041,19 +1279,23 @@ define([], function() {
         var speedWhenSent = chirpSpeed;
 
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', M_cfg.proxyUrl, true);
+        xhr.open('POST', mCfg.proxyUrl, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.timeout = 30000;
 
         xhr.onload = function() {
-            if (!isPlaying || chirpSpeed !== speedWhenSent) { delete prefetchCache[idx]; return; }
+            if (!isPlaying || chirpSpeed !== speedWhenSent) {
+                delete prefetchCache[idx]; return;
+            }
             try {
                 var resp = JSON.parse(xhr.responseText);
                 if (resp && resp.ok && resp.audioContent) {
                     var raw = atob(resp.audioContent);
                     var buf = new Uint8Array(raw.length);
-                    for (var i = 0; i < raw.length; i++) { buf[i] = raw.charCodeAt(i); }
+                    for (var i = 0; i < raw.length; i++) {
+                        buf[i] = raw.charCodeAt(i);
+                    }
                     chirpCtx.decodeAudioData(buf.buffer.slice(0), function(decoded) {
                         if (isPlaying) {
                             prefetchCache[idx] = decoded;
@@ -1061,33 +1303,47 @@ define([], function() {
                             // depth 0 → fires depth 1 (heading prefetch → para prefetch)
                             // depth 1 → fires depth 2 (para prefetch → next-para prefetch)
                             // depth 2 → stops. Eliminates gap on cold TTS cache.
-                            if (cascadeDepth < 2) { prefetchNext(idx + 1, cascadeDepth + 1); }
+                            if (cascadeDepth < 2) {
+                                prefetchNext(idx + 1, cascadeDepth + 1);
+                            }
                         } else {
                             delete prefetchCache[idx];
                         }
-                    }, function() { delete prefetchCache[idx]; });
+                    }, function() {
+                        delete prefetchCache[idx];
+                    });
                 } else {
                     delete prefetchCache[idx];
                 }
-            } catch (e) { delete prefetchCache[idx]; }
+            } catch (e) {
+                delete prefetchCache[idx];
+            }
         };
-        xhr.onerror = xhr.ontimeout = function() { delete prefetchCache[idx]; };
+        xhr.onerror = xhr.ontimeout = function() {
+            delete prefetchCache[idx];
+        };
 
         xhr.send(JSON.stringify({
-            sesskey      : M_cfg.sesskey,
-            action       : 'synthesize',
-            text         : segments[idx].text.substring(0, 4500),
-            voice        : voice,
-            language     : lang,
-            speakingRate : chirpSpeed,         // FEAT-CV-SPEAKINGRATE (v1.1.18)
-            courseid     : M_cfg.courseId || 0
+            sesskey: mCfg.sesskey,
+            action: 'synthesize',
+            text: segments[idx].text.substring(0, 4500),
+            voice: voice,
+            language: lang,
+            speakingRate: chirpSpeed, // FEAT-CV-SPEAKINGRATE (v1.1.18)
+            courseid: mCfg.courseId || 0
         }));
     }
 
     // ── Base64 → AudioContext playback ────────────────────────────────────────
     // FIX-CV-AUTOPLAY (v1.1.5): AudioContext is unlocked during the user click
-    // (via unlockAudioCtx in onPlayAll / playSingle), so BufferSource.start()
+    // (via unlockAudioCtx in onPlayAll), so BufferSource.start()
     // can be called from any async callback without autoplay policy interference.
+    /**
+     * Decode base64 audio and play it.
+     *
+     * @param {String} b64 Base64 MP3 audio.
+     * @param {Function} onDone Runs when playback ends.
+     */
     function playBase64(b64, onDone) {
         if (!chirpCtx) {
             setStatus('Audio not ready \u2014 click Play again.');
@@ -1097,18 +1353,22 @@ define([], function() {
 
         var raw, pcmBuf;
         try {
-            raw    = atob(b64);
+            raw = atob(b64);
             pcmBuf = new Uint8Array(raw.length);
-            for (var i = 0; i < raw.length; i++) { pcmBuf[i] = raw.charCodeAt(i); }
+            for (var i = 0; i < raw.length; i++) {
+                pcmBuf[i] = raw.charCodeAt(i);
+            }
         } catch (e) {
             setStatus('Audio decode error: ' + e.message);
             finishAll();
             return;
         }
 
-        // decodeAudioData needs a copy of the ArrayBuffer (it transfers ownership)
+        // DecodeAudioData needs a copy of the ArrayBuffer (it transfers ownership)
         chirpCtx.decodeAudioData(pcmBuf.buffer.slice(0), function(decoded) {
-            if (!isPlaying) { return; }   // stop was clicked while TTS was decoding
+            if (!isPlaying) {
+                return;
+            } // Stop was clicked while TTS was decoding
             // FIX-CV-HL-MISSING (v1.1.17): Do NOT call stopAll() here.
             // stopAll() calls clearHl(), erasing the highlight that playSegAt()
             // already set before the async XHR + decode completed — so every
@@ -1117,12 +1377,17 @@ define([], function() {
             // The cache-hit path (line ~874) already uses this safer pattern.
             // Mirror it: stop only the lingering BufferSource, leave highlight/cache.
             if (activeSource) {
-                try { activeSource.onended = null; activeSource.stop(); } catch (e) {}
+                try {
+                    activeSource.onended = null;
+                    activeSource.stop();
+                } catch (e) {
+                    // Ignore: the source may already have stopped.
+                }
                 activeSource = null;
             }
             isPlaying = true;
             _playBuffer(decoded, 0, onDone);
-            prefetchNext(curIdx + 1);     // start fetching the next segment now
+            prefetchNext(curIdx + 1); // Start fetching the next segment now
         }, function(e) {
             setStatus('Audio decode error: ' + (e && e.message ? e.message : 'unknown'));
             finishAll();

@@ -67,7 +67,7 @@ $string['apikey_desc']        = 'Your AI Grader API Key. Find this in your AI Gr
 
 $string['privacy:metadata']   = 'The AI SCORM Voiceover plugin sends the visible text content of the current SCORM lesson page to the AI Grader TTS API for audio synthesis. No personally identifiable information is transmitted. Audio is streamed back to the browser and not stored on any server.';
 
-// ── Teacher course settings page (v1.0.8) ────────────────────────────────────
+// Teacher course settings page (v1.0.8).
 $string['coursesettingstitle']    = 'AI SCORM Voiceover — Course Accent';
 $string['coursesettingsdesc'] = 'Choose the speaking accent for all voiceovers in this course.
 The voiceover always reads your SCORM content as written — this setting controls the accent, not the language of the content.';

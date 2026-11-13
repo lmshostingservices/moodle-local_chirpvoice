@@ -28,8 +28,6 @@
 
 namespace local_chirpvoice\hook;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Hook callbacks for local_chirpvoice before_footer_html_generation.
  */
@@ -122,7 +120,7 @@ class before_footer_html_generation {
                         $allowedvoicesraw = get_config('local_chirpvoice', 'allowedvoices');
                         $adminvoices = !empty($allowedvoicesraw)
                             ? array_filter(array_map('trim', explode(',', $allowedvoicesraw)))
-                            : ['Aoede','Charon','Fenrir','Kore','Leda','Orus','Puck','Zephyr'];
+                            : ['Aoede', 'Charon', 'Fenrir', 'Kore', 'Leda', 'Orus', 'Puck', 'Zephyr'];
                         $v = trim($coursesettings->voice);
                         $coursevoice = in_array($v, $adminvoices) ? $v : '';
                     }
@@ -144,14 +142,15 @@ class before_footer_html_generation {
                     $coursesettingsurl = $CFG->wwwroot . '/local/chirpvoice/course_settings.php?courseid=' . $courseid;
                 }
             } catch (\Throwable $e) {
-                // Ignore capability check errors.
+                // Capability check failed: leave the settings link hidden.
+                debugging($e->getMessage(), DEBUG_DEVELOPER);
             }
         }
 
         $config = [
             'proxyUrl'          => $CFG->wwwroot . '/local/chirpvoice/ajax.php',
             'sesskey'           => sesskey(),
-            'defaultVoice'      => get_config('local_chirpvoice', 'voice')    ?: 'Aoede',
+            'defaultVoice'      => get_config('local_chirpvoice', 'voice') ?: 'Aoede',
             'defaultLanguage'   => get_config('local_chirpvoice', 'language') ?: 'en-AU',
             'courseLanguage'    => $courselang,
             'courseVoice'       => $coursevoice,

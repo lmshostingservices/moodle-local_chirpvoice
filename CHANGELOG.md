@@ -2,13 +2,18 @@
 
 All notable changes to this plugin are listed here.
 
+## [1.1.43] - 2026-11-13
+
+### Fixed
+- The code passes Moodle's full code, JavaScript and CSS checks on Moodle 4.4 to 5.3 and main.
+- The teacher's course voice and accent page is built with Moodle's standard page tools. It looks and works the same.
+- Reading out a SCORM lesson works as before. Unused code was removed.
+
 ## [1.1.42] - 2026-11-13
 
 ### Fixed
 - Corrected release-check compatibility and package documentation without changing voiceover behaviour.
 
-
-All notable changes to this plugin are listed here.
 
 ## [1.1.41] - 2026-11-13
 

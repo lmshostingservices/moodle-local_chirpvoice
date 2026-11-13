@@ -26,7 +26,7 @@
 }
 
 #chirp-toolbar:hover {
-    opacity: 1 !important;
+    opacity: 1;
 }
 
 /* Logo / label */
@@ -69,9 +69,17 @@
     cursor: not-allowed;
 }
 
-.chirp-play  { color: #86efac; }
-.chirp-pause { color: #fde68a; }
-.chirp-stop  { color: #fca5a5; }
+.chirp-play {
+    color: #86efac;
+}
+
+.chirp-pause {
+    color: #fde68a;
+}
+
+.chirp-stop {
+    color: #fca5a5;
+}
 
 /* Status text — small unobtrusive label after the stop button */
 /* FIX-CV-STATUS-RESTORE (v1.1.32): #chirp-status was removed in v1.1.13 but

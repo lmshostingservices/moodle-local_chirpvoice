@@ -33,7 +33,6 @@ $page = new admin_settingpage(
 );
 
 if ($ADMIN->fulltree) {
-
     $page->add(new admin_setting_heading(
         'local_chirpvoice/general',
         get_string('pluginname', 'local_chirpvoice'),
@@ -48,7 +47,7 @@ if ($ADMIN->fulltree) {
         0
     ));
 
-    // --- Credits & Availability ---
+    // Credits and availability.
     $page->add(new admin_setting_heading(
         'local_chirpvoice/availhdr',
         get_string('availsettings', 'local_chirpvoice'),
@@ -116,7 +115,7 @@ if ($ADMIN->fulltree) {
         $langoptions
     ));
 
-    // --- Voice settings ---
+    // Voice settings.
     $page->add(new admin_setting_heading(
         'local_chirpvoice/voicehdr',
         get_string('voicesettings', 'local_chirpvoice'),
@@ -139,7 +138,7 @@ if ($ADMIN->fulltree) {
         $langoptions
     ));
 
-    // --- Connection settings ---
+    // Connection settings.
     $page->add(new admin_setting_heading(
         'local_chirpvoice/connectionhdr',
         get_string('connectionsettings', 'local_chirpvoice'),
@@ -159,7 +158,7 @@ if ($ADMIN->fulltree) {
         get_string('siteid', 'local_chirpvoice'),
         get_string('siteid_desc', 'local_chirpvoice'),
         '',
-        PARAM_RAW_TRIMMED // pipeline-ignore: PARAM_RAW_TRIMMED — site identifier may be a hostname or UUID and must be preserved exactly.
+        PARAM_RAW_TRIMMED // PARAM_RAW_TRIMMED pipeline-ignore: the site ID may be a hostname or UUID, kept exactly.
     ));
 
     $page->add(new admin_setting_configtext(
@@ -167,7 +166,7 @@ if ($ADMIN->fulltree) {
         get_string('apikey', 'local_chirpvoice'),
         get_string('apikey_desc', 'local_chirpvoice'),
         '',
-        PARAM_RAW_TRIMMED // pipeline-ignore: PARAM_RAW_TRIMMED — opaque API credentials must be preserved exactly.
+        PARAM_RAW_TRIMMED // PARAM_RAW_TRIMMED pipeline-ignore: opaque API credentials, kept exactly.
     ));
 }
 
