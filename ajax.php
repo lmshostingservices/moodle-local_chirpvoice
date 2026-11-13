@@ -213,6 +213,19 @@ try {
         exit;
     }
 
+    // Client Portal (when installed) bills the client: the service's figure, else 3 credits per paragraph.
+    if (!empty($data['audioContent']) && method_exists('\\local_clientportal\\api', 'record_lmslabs_call')) {
+        $coursectx = $courseid > 0 ? \context_course::instance($courseid, IGNORE_MISSING) : false;
+        \local_clientportal\api::record_lmslabs_call(
+            (int)$USER->id,
+            $coursectx ? (int)$coursectx->id : (int)\context_system::instance()->id,
+            'local_chirpvoice',
+            $data,
+            3,
+            'SCORM voiceover'
+        );
+    }
+
     // Pass through whatever the server returned (ok, audioContent, error, etc.).
     echo json_encode($data);
 
