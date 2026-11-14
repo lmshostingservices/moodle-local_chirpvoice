@@ -158,10 +158,10 @@ try {
     }
 
     if (empty($siteid)) {
-        $siteid = get_config('local_chirpvoice', 'siteid');
+        $siteid = trim((string) get_config('local_chirpvoice', 'siteid'));
     }
     if (empty($apikey)) {
-        $apikey = get_config('local_chirpvoice', 'apikey');
+        $apikey = trim((string) get_config('local_chirpvoice', 'apikey'));
     }
 
     if (empty($siteid) || empty($apikey)) {
