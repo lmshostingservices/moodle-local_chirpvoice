@@ -158,15 +158,14 @@ if ($ADMIN->fulltree) {
         get_string('siteid', 'local_chirpvoice'),
         get_string('siteid_desc', 'local_chirpvoice'),
         '',
-        PARAM_RAW_TRIMMED // PARAM_RAW_TRIMMED pipeline-ignore: the site ID may be a hostname or UUID, kept exactly.
+        PARAM_TEXT
     ));
 
-    $page->add(new admin_setting_configtext(
+    $page->add(new admin_setting_configpasswordunmask(
         'local_chirpvoice/apikey',
         get_string('apikey', 'local_chirpvoice'),
         get_string('apikey_desc', 'local_chirpvoice'),
-        '',
-        PARAM_RAW_TRIMMED // PARAM_RAW_TRIMMED pipeline-ignore: opaque API credentials, kept exactly.
+        ''
     ));
 }
 

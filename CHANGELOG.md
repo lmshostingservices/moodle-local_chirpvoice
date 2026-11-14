@@ -2,6 +2,13 @@
 
 All notable changes to this plugin are listed here.
 
+## [1.1.44] - 2026-11-14
+
+### Fixed
+- The Site ID setting uses plain text instead of raw input, as the LMS Labs release checks require.
+- The API key is now a password field: it is hidden on screen and accepts any characters.
+- Spaces around a pasted Site ID or API key are still removed.
+
 ## [1.1.43] - 2026-11-13
 
 ### Fixed
